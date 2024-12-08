@@ -145,51 +145,20 @@ class Updater:
         """Create setup.py for cx_Freeze"""
         setup_script = """
 import sys
-import os
 from cx_Freeze import setup, Executable
 
-# Dependencies are automatically detected, but it might need fine tuning.
+# Minimal build options to reduce complexity
 build_exe_options = {
-    "packages": [
-        "colorama",
-        "cryptography",
-        "datetime",
-        "git",
-        "packaging",
-        "src",
-        "os",
-        "sys",
-        "json",
-        "shutil",
-        "tempfile",
-        "platform",
-        "subprocess"
-    ],
-    "excludes": [
-        "tkinter",
-        "test",
-        "distutils",
-        "unittest",
-        "pydoc",
-        "doctest",
-        "setuptools",
-        "pip"
-    ],
+    "packages": ["src"],
+    "excludes": ["tkinter", "test", "unittest"],
     "include_files": [
         ("data", "data"),
         ("assets", "assets")
     ],
-    "build_exe": "build/SMTP Manager",
-    "optimize": 2,
-    "include_msvcr": True,
-    "zip_include_packages": "*",
-    "zip_exclude_packages": None
+    "build_exe": "build/SMTP Manager"
 }
 
-# base="Win32GUI" should be used only for Windows GUI app
-base = None
-if sys.platform == "win32":
-    base = "Console"  # Changed from "Win32GUI" to "Console" for better error visibility
+base = "Console" if sys.platform == "win32" else None
 
 setup(
     name = "SMTP Manager",
@@ -215,16 +184,38 @@ setup(
         try:
             setup_path = self._create_setup_script()
             
+            # Create and activate a virtual environment for building
+            venv_path = os.path.join(self.temp_dir, 'venv')
+            subprocess.run([sys.executable, '-m', 'venv', venv_path], check=True)
+            
+            # Get path to venv Python executable
+            venv_python = os.path.join(venv_path, 'Scripts', 'python.exe')
+            
+            # Install required packages in venv
+            subprocess.run([
+                venv_python, '-m', 'pip', 'install', 
+                'cx_Freeze',
+                'colorama',
+                'cryptography',
+                'GitPython',
+                'packaging'
+            ], check=True)
+            
             # Set higher recursion limit
             sys.setrecursionlimit(5000)
             
             # Add more detailed error output
             result = subprocess.run(
-                [sys.executable, setup_path, "build"],
+                [venv_python, setup_path, "build"],
                 cwd=self.build_dir,
                 capture_output=True,
                 text=True,
-                env={**os.environ, 'PYTHONPATH': self.build_dir}
+                env={
+                    **os.environ,
+                    'PYTHONPATH': self.build_dir,
+                    'VIRTUAL_ENV': venv_path,
+                    'PATH': f"{os.path.join(venv_path, 'Scripts')}{os.pathsep}{os.environ['PATH']}"
+                }
             )
             
             if result.returncode != 0:

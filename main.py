@@ -108,8 +108,6 @@ def check_dependencies():
     required_packages = [
         'colorama',
         'cryptography',
-        'gitpython',
-        'cx_freeze'
     ]
     
     missing_packages = []
@@ -140,6 +138,12 @@ def main():
         
         # Display banner
         display_banner()
+
+        # Mandatory update check
+        updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
+        if not updater.check_for_updates(mandatory=True):
+            print(f"{Fore.RED}Cannot continue without updating. Please try again.{Style.RESET_ALL}")
+            return
         
         # Check for updates if enabled
         if Settings.CHECK_UPDATES_ON_START:

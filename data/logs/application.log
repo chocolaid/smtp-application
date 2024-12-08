@@ -370,3 +370,9 @@
 2024-12-07 18:31:06,314 - INFO - Update available: 2.0.0
 2024-12-07 18:31:06,804 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmp7af5k1h7/setup.py', 'build']' returned non-zero exit status 1.
 2024-12-07 18:31:06,804 - ERROR - Update failed: Failed to build new version
+2024-12-07 18:45:18,345 - ERROR - Error loading SMTP accounts: 
+2024-12-07 18:45:18,348 - ERROR - Error loading recipients: 
+2024-12-07 18:45:18,350 - ERROR - Error loading campaigns: 
+2024-12-07 18:46:32,876 - INFO - Update available: 3.0.0
+2024-12-07 18:48:40,038 - ERROR - Error replacing executable: [Errno 13] Permission denied
+2024-12-07 18:48:40,039 - ERROR - Update failed: Failed to replace executable

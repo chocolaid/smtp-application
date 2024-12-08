@@ -21,6 +21,43 @@ class Updater:
         self.current_version = self._get_current_version()
         self.platform = platform.system().lower()
         self.build_dir = None
+        self.is_admin = self._check_admin()
+
+    def _check_admin(self):
+        """Check if the application has admin privileges"""
+        try:
+            if self.platform == 'windows':
+                import ctypes
+                return ctypes.windll.shell32.IsUserAnAdmin() != 0
+            elif self.platform == 'darwin':  # macOS
+                return os.getuid() == 0
+            else:  # Linux and others
+                return os.geteuid() == 0
+        except:
+            return False
+
+    def _run_as_admin(self):
+        """Restart the application with admin privileges"""
+        try:
+            if self.platform == 'windows':
+                import ctypes
+                ctypes.windll.shell32.ShellExecuteW(
+                    None, "runas", sys.executable, " ".join(sys.argv), None, 1
+                )
+            elif self.platform == 'darwin':  # macOS
+                script = f'''
+                do shell script "{sys.executable} {' '.join(sys.argv)}" with administrator privileges
+                '''
+                subprocess.run(['osascript', '-e', script])
+            else:  # Linux and others
+                if shutil.which('sudo'):
+                    os.execvp('sudo', ['sudo', sys.executable] + sys.argv)
+                else:
+                    raise Exception("sudo is not available")
+            sys.exit(0)
+        except Exception as e:
+            self.logger.error(f"Failed to gain admin privileges: {str(e)}")
+            return False
 
     def _get_current_version(self) -> str:
         """Get current version from version.json"""
@@ -179,7 +216,10 @@ setup(
             for root, _, files in os.walk(os.path.join(self.build_dir, "build")):
                 for file in files:
                     if file == "smtp_manager":
-                        return os.path.join(root, file)
+                        exe_path = os.path.join(root, file)
+                        # Set proper permissions
+                        os.chmod(exe_path, 0o755)
+                        return exe_path
             
             raise Exception("Built executable not found")
         except Exception as e:
@@ -200,7 +240,10 @@ setup(
             for root, _, files in os.walk(os.path.join(self.build_dir, "build")):
                 for file in files:
                     if file == "smtp_manager":
-                        return os.path.join(root, file)
+                        exe_path = os.path.join(root, file)
+                        # Set proper permissions
+                        os.chmod(exe_path, 0o755)
+                        return exe_path
             
             raise Exception("Built executable not found")
         except Exception as e:
@@ -229,56 +272,97 @@ setup(
             self.logger.error(f"Build failed: {str(e)}")
             return None
 
+    def _check_file_permissions(self, path):
+        """Check if we have write permissions for the file"""
+        if not os.path.exists(path):
+            return os.access(os.path.dirname(path), os.W_OK)
+        return os.access(path, os.W_OK)
+
     def _replace_executable(self, new_path: str):
         """Replace current executable with new version"""
         try:
             current_path = sys.executable
             backup_path = current_path + '.backup'
             
+            # Check if we need admin privileges
+            if not self._check_file_permissions(current_path):
+                if not self.is_admin:
+                    print(f"{Fore.YELLOW}Admin privileges required for update. Requesting elevation...{Style.RESET_ALL}")
+                    return self._run_as_admin()
+            
             # Create backup of current executable
             shutil.copy2(current_path, backup_path)
             
             try:
-                # Replace executable
-                shutil.copy2(new_path, current_path)
+                if self.platform == 'darwin':  # macOS
+                    # Stop the current process if it's running
+                    app_name = os.path.basename(current_path)
+                    subprocess.run(['pkill', '-f', app_name], stderr=subprocess.DEVNULL)
+                    
+                    # Copy new executable
+                    shutil.copy2(new_path, current_path)
+                    # Set proper permissions
+                    os.chmod(current_path, 0o755)
+                    
+                elif self.platform == 'windows':
+                    import win32api
+                    import win32con
+                    # Set file attributes to normal
+                    win32api.SetFileAttributes(current_path, win32con.FILE_ATTRIBUTE_NORMAL)
+                    # Move new file to replace old one
+                    os.replace(new_path, current_path)
+                else:  # Linux
+                    shutil.copy2(new_path, current_path)
+                    os.chmod(current_path, 0o755)
+                
                 os.remove(backup_path)
                 return True
+                
             except Exception as e:
                 # Restore backup if replacement fails
-                shutil.copy2(backup_path, current_path)
-                os.remove(backup_path)
+                if os.path.exists(backup_path):
+                    shutil.copy2(backup_path, current_path)
+                    os.remove(backup_path)
                 raise e
 
         except Exception as e:
             self.logger.error(f"Error replacing executable: {str(e)}")
             return False
 
-    def check_for_updates(self) -> bool:
+    def check_for_updates(self, mandatory=True) -> bool:
         """Check for updates and install if available"""
         try:
+            print(f"{Fore.CYAN}Checking for updates...{Style.RESET_ALL}")
             remote_version = self._get_remote_version()
             
             if version.parse(remote_version) > version.parse(self.current_version):
-                self.logger.info(f"Update available: {remote_version}")
+                print(f"{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
                 
                 # Build new version
+                print(f"{Fore.CYAN}Building new version...{Style.RESET_ALL}")
                 new_exe = self._build_executable()
                 if not new_exe:
                     raise Exception("Failed to build new version")
 
                 # Replace current executable
+                print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
                 if self._replace_executable(new_exe):
-                    self.logger.info("Update installed successfully")
-                    return True
+                    print(f"{Fore.GREEN}Update installed successfully. Please restart the application.{Style.RESET_ALL}")
+                    sys.exit(0)
                 else:
                     raise Exception("Failed to replace executable")
 
             else:
-                self.logger.info("No updates available")
-                return False
+                print(f"{Fore.GREEN}You are running the latest version: v{self.current_version}{Style.RESET_ALL}")
+                return True
 
         except Exception as e:
-            self.logger.error(f"Update failed: {str(e)}")
+            error_msg = f"Update failed: {str(e)}"
+            self.logger.error(error_msg)
+            if mandatory:
+                print(f"{Fore.RED}{error_msg}")
+                print("Updates are required to run this application.{Style.RESET_ALL}")
+                sys.exit(1)
             return False
 
         finally:

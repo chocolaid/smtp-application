@@ -156,6 +156,7 @@ build_exe_options = {
         "datetime",
         "git",
         "packaging",
+        "src"
     ],
     "excludes": [
         "tkinter",
@@ -173,7 +174,9 @@ build_exe_options = {
     ],
     "build_exe": "build/SMTP Manager",
     "optimize": 2,
-    "include_msvcr": True
+    "include_msvcr": True,
+    "zip_include_packages": "*",
+    "zip_exclude_packages": None
 }
 
 # base="Win32GUI" should be used only for Windows GUI app
@@ -204,12 +207,23 @@ setup(
         """Build for Windows using cx_Freeze"""
         try:
             setup_path = self._create_setup_script()
-            subprocess.run([
-                sys.executable,
-                setup_path,
-                "build"
-            ], cwd=self.build_dir, check=True)
             
+            # Set higher recursion limit
+            import sys
+            sys.setrecursionlimit(5000)
+            
+            # Add more detailed error output
+            result = subprocess.run(
+                [sys.executable, setup_path, "build"],
+                cwd=self.build_dir,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                self.logger.error(f"Build output:\n{result.stdout}\n{result.stderr}")
+                raise Exception(f"Build failed with return code {result.returncode}")
+                
             # Find the built executable
             for root, _, files in os.walk(os.path.join(self.build_dir, "build")):
                 for file in files:
@@ -270,6 +284,8 @@ setup(
     def _build_executable(self):
         """Build executable for current platform"""
         try:
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            sys.path.insert(0, project_root)
             if not self._prepare_build_directory():
                 raise Exception("Failed to prepare build directory")
                 

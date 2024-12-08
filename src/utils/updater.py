@@ -156,7 +156,14 @@ build_exe_options = {
         "datetime",
         "git",
         "packaging",
-        "src"
+        "src",
+        "os",
+        "sys",
+        "json",
+        "shutil",
+        "tempfile",
+        "platform",
+        "subprocess"
     ],
     "excludes": [
         "tkinter",
@@ -209,7 +216,6 @@ setup(
             setup_path = self._create_setup_script()
             
             # Set higher recursion limit
-            import sys
             sys.setrecursionlimit(5000)
             
             # Add more detailed error output
@@ -217,7 +223,8 @@ setup(
                 [sys.executable, setup_path, "build"],
                 cwd=self.build_dir,
                 capture_output=True,
-                text=True
+                text=True,
+                env={**os.environ, 'PYTHONPATH': self.build_dir}
             )
             
             if result.returncode != 0:
@@ -234,7 +241,6 @@ setup(
         except Exception as e:
             self.logger.error(f"Windows build failed: {str(e)}")
             return None
-
     def _build_macos(self):
         """Build for macOS using cx_Freeze"""
         try:
@@ -284,8 +290,15 @@ setup(
     def _build_executable(self):
         """Build executable for current platform"""
         try:
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            # Get the absolute path to the project root
+            current_file = os.path.abspath(__file__)  # Gets path to updater.py
+            utils_dir = os.path.dirname(current_file)  # Gets path to utils directory
+            src_dir = os.path.dirname(utils_dir)      # Gets path to src directory
+            project_root = os.path.dirname(src_dir)    # Gets path to project root
+            
+            # Add to Python path
             sys.path.insert(0, project_root)
+            
             if not self._prepare_build_directory():
                 raise Exception("Failed to prepare build directory")
                 
@@ -304,6 +317,8 @@ setup(
         except Exception as e:
             self.logger.error(f"Build failed: {str(e)}")
             return None
+        
+    
     def _copy_required_files(self, install_dir):
         """Copy required files and directories to installation directory"""
         try:

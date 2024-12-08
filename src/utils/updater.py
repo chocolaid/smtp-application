@@ -136,8 +136,8 @@ setup(
                 "-o", "None",
                 "-i", "assets/icon.icns",  # Make sure this exists
                 "-V", self.current_version,
-                "-u", "Your Name",
-                "-I", "com.yourcompany.smtpmanager",
+                "-u", "OECAPPS",
+                "-I", "oec.apps.smtpmanager",
                 "-c", exe_path,
                 app_path
             ], check=True)

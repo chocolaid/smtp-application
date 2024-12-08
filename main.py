@@ -5,6 +5,9 @@ import sys
 import traceback
 from datetime import datetime
 from colorama import init, Fore, Style
+from src.utils.updater import Updater
+from src.config.settings import Settings
+
 
 # Initialize colorama for cross-platform color support
 init()
@@ -146,6 +149,27 @@ def check_python_version():
 
 def main():
     """Main application entry point."""
+
+    try:
+        # Check for updates if enabled
+        if Settings.CHECK_UPDATES_ON_START:
+            updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
+            if updater.check_for_updates():
+                print(f"{Fore.GREEN}Update installed. Please restart the application.{Style.RESET_ALL}")
+                return
+
+        # Continue with normal application startup
+        create_directory_structure()
+        create_init_files()
+        
+        app = SMTPApplication()
+        app.run()
+
+    except Exception as e:
+        print(f"{Fore.RED}Fatal error: {str(e)}{Style.RESET_ALL}")
+        traceback.print_exc()
+        input("\nPress Enter to exit...")
+
     try:
         # Display startup banner
         display_startup_banner()

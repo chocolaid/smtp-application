@@ -3,11 +3,10 @@ import sys
 import shutil
 import tempfile
 import subprocess
+import platform
 from git import Repo
 from packaging import version
 import json
-from Cython.Build import cythonize
-from setuptools import setup
 from src.utils.logger import Logger
 from src.config.settings import Settings
 
@@ -18,9 +17,9 @@ class Updater:
         self.repo_url = repo_url
         self.temp_dir = tempfile.mkdtemp()
         self.current_version = self._get_current_version()
+        self.platform = platform.system().lower()
 
     def _get_current_version(self) -> str:
-        """Get current version from version.json"""
         try:
             with open('version.json', 'r') as f:
                 return json.load(f)['version']
@@ -28,7 +27,6 @@ class Updater:
             return "0.0.0"
 
     def _get_remote_version(self) -> str:
-        """Get version from remote repository"""
         try:
             repo = Repo.clone_from(
                 self.repo_url.replace('https://', f'https://{self.github_token}@'),
@@ -41,61 +39,179 @@ class Updater:
             self.logger.error(f"Error checking remote version: {str(e)}")
             return "0.0.0"
 
-    def _build_exe(self):
-        """Build the application using Cython and PyInstaller"""
+    def _create_setup_script(self):
+        """Create setup.py for cx_Freeze"""
+        setup_script = """
+import sys
+from cx_Freeze import setup, Executable
+
+# Dependencies
+build_exe_options = {
+    "packages": ["os", "sys", "colorama", "cryptography", "logging"],
+    "excludes": ["tkinter", "test", "distutils"],
+    "include_files": [
+        "version.json",
+        "README.md",
+        ("data", "data")
+    ]
+}
+
+# Base for GUI applications
+base = None
+if sys.platform == "win32":
+    base = "Win32GUI"
+
+# Target executable
+target = Executable(
+    script="main.py",
+    base=base,
+    target_name="smtp_manager",
+    icon="assets/icon.ico"  # Make sure this path exists
+)
+
+setup(
+    name="SMTP Manager",
+    version="%s",
+    description="SMTP Management Tool",
+    options={"build_exe": build_exe_options},
+    executables=[target]
+)
+""" % self.current_version
+
+        setup_path = os.path.join(self.temp_dir, "setup.py")
+        with open(setup_path, "w") as f:
+            f.write(setup_script)
+        return setup_path
+
+    def _build_windows(self):
+        """Build for Windows using cx_Freeze"""
         try:
-            # Change to temp directory
-            os.chdir(self.temp_dir)
-
-            # Cythonize Python files
-            python_files = []
-            for root, _, files in os.walk('src'):
-                for file in files:
-                    if file.endswith('.py'):
-                        python_files.append(os.path.join(root, file))
-
-            setup(
-                ext_modules=cythonize(python_files),
-                script_args=['build_ext', '--inplace']
-            )
-
-            # Create PyInstaller command
-            pyinstaller_cmd = [
-                'pyinstaller',
-                '--onefile',
-                '--noconsole',
-                '--name', 'smtp_manager',
-                'main.py'
-            ]
-
-            # Run PyInstaller
-            subprocess.run(pyinstaller_cmd, check=True)
+            setup_path = self._create_setup_script()
+            subprocess.run([
+                sys.executable,
+                setup_path,
+                "build"
+            ], check=True)
             
-            return os.path.join('dist', 'smtp_manager.exe')
-
+            # Find the built executable
+            build_dir = os.path.join(self.temp_dir, "build")
+            for root, _, files in os.walk(build_dir):
+                for file in files:
+                    if file.endswith("smtp_manager.exe"):
+                        return os.path.join(root, file)
+            
+            raise Exception("Built executable not found")
         except Exception as e:
-            self.logger.error(f"Error building executable: {str(e)}")
+            self.logger.error(f"Windows build failed: {str(e)}")
             return None
 
-    def _replace_executable(self, new_exe_path: str):
+    def _build_macos(self):
+        """Build for macOS using cx_Freeze and Platypus"""
+        try:
+            # First build with cx_Freeze
+            setup_path = self._create_setup_script()
+            subprocess.run([
+                sys.executable,
+                setup_path,
+                "build"
+            ], check=True)
+
+            # Find the built executable
+            build_dir = os.path.join(self.temp_dir, "build")
+            exe_path = None
+            for root, _, files in os.walk(build_dir):
+                for file in files:
+                    if file == "smtp_manager":
+                        exe_path = os.path.join(root, file)
+                        break
+
+            if not exe_path:
+                raise Exception("Built executable not found")
+
+            # Create .app bundle using Platypus
+            app_path = os.path.join(self.temp_dir, "SMTP Manager.app")
+            subprocess.run([
+                "platypus",
+                "-a", "SMTP Manager",
+                "-o", "None",
+                "-i", "assets/icon.icns",  # Make sure this exists
+                "-V", self.current_version,
+                "-u", "Your Name",
+                "-I", "com.yourcompany.smtpmanager",
+                "-c", exe_path,
+                app_path
+            ], check=True)
+
+            return app_path
+
+        except Exception as e:
+            self.logger.error(f"macOS build failed: {str(e)}")
+            return None
+
+    def _build_linux(self):
+        """Build for Linux using cx_Freeze"""
+        try:
+            setup_path = self._create_setup_script()
+            subprocess.run([
+                sys.executable,
+                setup_path,
+                "build"
+            ], check=True)
+            
+            # Find the built executable
+            build_dir = os.path.join(self.temp_dir, "build")
+            for root, _, files in os.walk(build_dir):
+                for file in files:
+                    if file == "smtp_manager":
+                        return os.path.join(root, file)
+            
+            raise Exception("Built executable not found")
+        except Exception as e:
+            self.logger.error(f"Linux build failed: {str(e)}")
+            return None
+
+    def _build_executable(self):
+        """Build executable for current platform"""
+        build_functions = {
+            'windows': self._build_windows,
+            'darwin': self._build_macos,
+            'linux': self._build_linux
+        }
+        
+        build_func = build_functions.get(self.platform)
+        if not build_func:
+            raise Exception(f"Unsupported platform: {self.platform}")
+            
+        return build_func()
+
+    def _replace_executable(self, new_path: str):
         """Replace current executable with new version"""
         try:
-            current_exe = sys.executable
-            temp_backup = current_exe + '.backup'
-
-            # Create backup of current executable
-            shutil.copy2(current_exe, temp_backup)
-
-            try:
-                # Replace executable
-                shutil.copy2(new_exe_path, current_exe)
-                os.remove(temp_backup)
-                return True
-            except Exception as e:
-                # Restore backup if replacement fails
-                shutil.copy2(temp_backup, current_exe)
-                os.remove(temp_backup)
-                raise e
+            current_path = sys.executable
+            if self.platform == 'darwin':
+                # For macOS, replace the entire .app bundle
+                current_app = os.path.dirname(os.path.dirname(os.path.dirname(current_path)))
+                backup_path = current_app + '.backup'
+                shutil.move(current_app, backup_path)
+                try:
+                    shutil.copytree(new_path, current_app)
+                    shutil.rmtree(backup_path)
+                    return True
+                except Exception as e:
+                    shutil.move(backup_path, current_app)
+                    raise e
+            else:
+                # For Windows and Linux
+                backup_path = current_path + '.backup'
+                shutil.copy2(current_path, backup_path)
+                try:
+                    shutil.copy2(new_path, current_path)
+                    os.remove(backup_path)
+                    return True
+                except Exception as e:
+                    shutil.copy2(backup_path, current_path)
+                    os.remove(backup_path)
+                    raise e
 
         except Exception as e:
             self.logger.error(f"Error replacing executable: {str(e)}")
@@ -110,12 +226,12 @@ class Updater:
                 self.logger.info(f"Update available: {remote_version}")
                 
                 # Build new version
-                new_exe = self._build_exe()
-                if not new_exe:
+                new_path = self._build_executable()
+                if not new_path:
                     raise Exception("Failed to build new version")
 
                 # Replace current executable
-                if self._replace_executable(new_exe):
+                if self._replace_executable(new_path):
                     self.logger.info("Update installed successfully")
                     return True
                 else:

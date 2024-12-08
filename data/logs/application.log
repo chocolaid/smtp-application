@@ -367,3 +367,6 @@
 2024-12-07 17:29:16,936 - INFO - Email sent successfully to emmanuel.onuorah220812091@st.lasu.edu.ng
 2024-12-07 17:29:16,937 - INFO - Email sent successfully to emmanuel.onuorah220812091@st.lasu.edu.ng
 2024-12-07 17:29:16,939 - INFO - Campaign 20241207_172255 completed. Stats: {'total': 5, 'sent': 5, 'failed': 0, 'remaining': 0}
+2024-12-07 18:31:06,314 - INFO - Update available: 2.0.0
+2024-12-07 18:31:06,804 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmp7af5k1h7/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 18:31:06,804 - ERROR - Update failed: Failed to build new version

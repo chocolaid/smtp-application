@@ -22,6 +22,7 @@ class Updater:
         self.platform = platform.system().lower()
         self.build_dir = None
         self.is_admin = self._check_admin()
+        self.exe_name = 'smtp_manager.exe' if self.platform == 'windows' else 'smtp_manager'
 
     def _is_running_from_source(self):
         """Check if running from source code or built executable"""
@@ -62,31 +63,26 @@ class Updater:
         except Exception as e:
             self.logger.error(f"Failed to gain admin privileges: {str(e)}")
             return False
-
     def _get_current_version(self) -> str:
-        """Get current version from version.json"""
-        try:
-            version_file = os.path.join(os.getcwd(), 'version.json')
-            if os.path.exists(version_file):
-                with open(version_file, 'r') as f:
-                    return json.load(f)['version']
-        except Exception as e:
-            self.logger.error(f"Error reading version file: {str(e)}")
-        return "0.0.0"
+        """Get current version from embedded version info"""
+        return "3.0.0" 
 
     def _get_remote_version(self) -> str:
-        """Get version from remote repository"""
+        """Get version from remote repository's src/config/version.py"""
         try:
             # Clone with authentication
             auth_url = self.repo_url.replace('https://', f'https://{self.github_token}@')
             repo = Repo.clone_from(auth_url, self.temp_dir, depth=1)
             
-            version_file = os.path.join(self.temp_dir, 'version.json')
+            version_file = os.path.join(self.temp_dir, 'src', 'config', 'version.py')
             if os.path.exists(version_file):
                 with open(version_file, 'r') as f:
-                    return json.load(f)['version']
-            raise Exception("version.json not found in repository")
-            
+                    version_content = f.read()
+                    # Extract version using simple string parsing
+                    version_line = [line for line in version_content.split('\n') if 'VERSION =' in line][0]
+                    return version_line.split('=')[1].strip().strip('"\'')
+            raise Exception("version.py not found in repository")
+                
         except Exception as e:
             self.logger.error(f"Error checking remote version: {str(e)}")
             return "0.0.0"
@@ -126,11 +122,6 @@ class Updater:
                     dirs_exist_ok=True
                 )
 
-            # Create data directory structure
-            data_dirs = ['smtp', 'templates', 'recipients', 'campaigns', 'logs', 'backups']
-            for dir_name in data_dirs:
-                os.makedirs(os.path.join(self.build_dir, 'data', dir_name), exist_ok=True)
-
             return True
 
         except Exception as e:
@@ -139,8 +130,17 @@ class Updater:
 
     def _create_setup_script(self):
         """Create setup.py for cx_Freeze"""
-        setup_script = """
-import sys
+        
+        # Prepare include_files list with only existing paths
+        include_files = [
+            ("src", "src")
+        ]
+        
+        # Only add data directory if it exists
+        if os.path.exists(os.path.join(self.build_dir, "data")):
+            include_files.append(("data", "data"))
+        
+        setup_script = """import sys
 from cx_Freeze import setup, Executable
 
 # Dependencies
@@ -151,11 +151,10 @@ build_exe_options = {
         "git", "packaging"
     ],
     "excludes": ["tkinter", "test", "distutils"],
-    "include_files": [
-        ("src", "src"),
-        ("data", "data"),
-        ("version.json", "version.json")
-    ]
+    "include_files": %s,
+    "include_msvcr": True,  # Include Visual C++ runtime files
+    "zip_include_packages": "*",  # Include all packages in zip
+    "zip_exclude_packages": None,
 }
 
 # Base for GUI applications
@@ -167,7 +166,7 @@ if sys.platform == "win32":
 target = Executable(
     script="main.py",
     base=base,
-    target_name="smtp_manager" + (".exe" if sys.platform == "win32" else ""),
+    target_name="%s",
     icon="%s" if sys.platform == "win32" else None
 )
 
@@ -177,14 +176,14 @@ setup(
     description="SMTP Management Tool",
     options={"build_exe": build_exe_options},
     executables=[target]
-)
-""" % (Settings.APP_ICON_PATH, self.current_version)
+)""" % (include_files, self.exe_name, Settings.APP_ICON_PATH, self.current_version)
 
         setup_path = os.path.join(self.build_dir, "setup.py")
         with open(setup_path, "w") as f:
             f.write(setup_script)
         return setup_path
-
+    
+    
     def _build_windows(self):
         """Build for Windows using cx_Freeze"""
         try:
@@ -198,7 +197,7 @@ setup(
             # Find the built executable
             for root, _, files in os.walk(os.path.join(self.build_dir, "build")):
                 for file in files:
-                    if file == "smtp_manager.exe":
+                    if file == self.exe_name:
                         return os.path.join(root, file)
             
             raise Exception("Built executable not found")
@@ -219,9 +218,8 @@ setup(
             # Find the built executable
             for root, _, files in os.walk(os.path.join(self.build_dir, "build")):
                 for file in files:
-                    if file == "smtp_manager":
+                    if file == self.exe_name:
                         exe_path = os.path.join(root, file)
-                        # Set proper permissions
                         os.chmod(exe_path, 0o755)
                         return exe_path
             
@@ -243,9 +241,8 @@ setup(
             # Find the built executable
             for root, _, files in os.walk(os.path.join(self.build_dir, "build")):
                 for file in files:
-                    if file == "smtp_manager":
+                    if file == self.exe_name:
                         exe_path = os.path.join(root, file)
-                        # Set proper permissions
                         os.chmod(exe_path, 0o755)
                         return exe_path
             
@@ -275,29 +272,72 @@ setup(
         except Exception as e:
             self.logger.error(f"Build failed: {str(e)}")
             return None
+    def _copy_required_files(self, install_dir):
+        """Copy required files and directories to installation directory"""
+        try:
+            # Copy data directory structure
+            data_dirs = ['smtp', 'templates', 'recipients', 'campaigns', 'logs', 'backups']
+            for dir_name in data_dirs:
+                os.makedirs(os.path.join(install_dir, 'data', dir_name), exist_ok=True)
 
-    def _check_file_permissions(self, path):
-        """Check if we have write permissions for the file"""
-        if not os.path.exists(path):
-            return os.access(os.path.dirname(path), os.W_OK)
-        return os.access(path, os.W_OK)
+            # Copy version.json
+            shutil.copy2(
+                os.path.join(self.build_dir, 'version.json'),
+                os.path.join(install_dir, 'version.json')
+            )
+
+            # Copy assets if they exist
+            assets_dir = os.path.join(self.build_dir, 'assets')
+            if os.path.exists(assets_dir):
+                shutil.copytree(
+                    assets_dir,
+                    os.path.join(install_dir, 'assets'),
+                    dirs_exist_ok=True
+                )
+
+            # Create a README file
+            readme_content = f"""SMTP Manager
+Version: {self.current_version}
+Installation Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+To run the application:
+{self.exe_name}
+
+Note: Do not delete any files in this directory."""
+
+            with open(os.path.join(install_dir, 'README.txt'), 'w') as f:
+                f.write(readme_content)
+
+        except Exception as e:
+            self.logger.error(f"Error copying required files: {str(e)}")
+            raise
 
     def _replace_executable(self, new_path: str):
         """Replace current executable with new version"""
         try:
             if self._is_running_from_source():
                 print(f"{Fore.YELLOW}Running from source code. Installing built version...{Style.RESET_ALL}")
-                # When running from source, create a new executable instead of replacing
-                install_dir = os.path.join(os.path.expanduser('~'), 'SMTPManager')
+                
+                # Get desktop path based on platform
+                if self.platform == 'windows':
+                    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+                elif self.platform == 'darwin':  # macOS
+                    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+                else:  # Linux
+                    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+                    # Fallback to home directory if Desktop doesn't exist
+                    if not os.path.exists(desktop_path):
+                        desktop_path = os.path.expanduser('~')
+                
+                # Create application directory on desktop
+                install_dir = os.path.join(desktop_path, 'SMTPManager')
                 os.makedirs(install_dir, exist_ok=True)
                 
-                target_path = os.path.join(
-                    install_dir, 
-                    'smtp_manager.exe' if self.platform == 'windows' else 'smtp_manager'
-                )
+                target_path = os.path.join(install_dir, self.exe_name)
                 
-                # Copy the new executable
+                # Copy the new executable and required files
                 shutil.copy2(new_path, target_path)
+                self._copy_required_files(install_dir)
                 
                 # Set proper permissions
                 if self.platform != 'windows':
@@ -308,38 +348,28 @@ setup(
                 return True
                 
             else:
-                # Normal executable replacement logic
                 current_path = sys.executable
                 backup_path = current_path + '.backup'
                 
-                # Check if we need admin privileges
                 if not self._check_file_permissions(current_path):
                     if not self.is_admin:
                         print(f"{Fore.YELLOW}Admin privileges required for update. Requesting elevation...{Style.RESET_ALL}")
                         return self._run_as_admin()
                 
-                # Create backup of current executable
                 shutil.copy2(current_path, backup_path)
                 
                 try:
-                    if self.platform == 'darwin':  # macOS
-                        # Stop the current process if it's running
+                    if self.platform == 'darwin':
                         app_name = os.path.basename(current_path)
                         subprocess.run(['pkill', '-f', app_name], stderr=subprocess.DEVNULL)
-                        
-                        # Copy new executable
                         shutil.copy2(new_path, current_path)
-                        # Set proper permissions
                         os.chmod(current_path, 0o755)
-                        
                     elif self.platform == 'windows':
                         import win32api
                         import win32con
-                        # Set file attributes to normal
                         win32api.SetFileAttributes(current_path, win32con.FILE_ATTRIBUTE_NORMAL)
-                        # Move new file to replace old one
                         os.replace(new_path, current_path)
-                    else:  # Linux
+                    else:
                         shutil.copy2(new_path, current_path)
                         os.chmod(current_path, 0o755)
                     
@@ -347,7 +377,6 @@ setup(
                     return True
                     
                 except Exception as e:
-                    # Restore backup if replacement fails
                     if os.path.exists(backup_path):
                         shutil.copy2(backup_path, current_path)
                         os.remove(backup_path)
@@ -366,13 +395,11 @@ setup(
             if version.parse(remote_version) > version.parse(self.current_version):
                 print(f"{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
                 
-                # Build new version
                 print(f"{Fore.CYAN}Building new version...{Style.RESET_ALL}")
                 new_exe = self._build_executable()
                 if not new_exe:
                     raise Exception("Failed to build new version")
 
-                # Replace current executable
                 print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
                 if self._replace_executable(new_exe):
                     if self._is_running_from_source():
@@ -397,7 +424,6 @@ setup(
             return False
 
         finally:
-            # Cleanup
             try:
                 if self.temp_dir and os.path.exists(self.temp_dir):
                     shutil.rmtree(self.temp_dir)

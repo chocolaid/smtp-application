@@ -378,3 +378,15 @@
 2024-12-07 18:48:40,039 - ERROR - Update failed: Failed to replace executable
 2024-12-07 19:04:08,255 - ERROR - Error replacing executable: [Errno 13] Permission denied
 2024-12-07 19:04:08,256 - ERROR - Update failed: Failed to replace executable
+2024-12-07 19:42:09,874 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpgk3sx4_f/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 19:42:09,876 - ERROR - Update failed: Failed to build new version
+2024-12-07 19:42:45,301 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpr5a2xacz/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 19:42:45,302 - ERROR - Update failed: Failed to build new version
+2024-12-07 19:52:49,828 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmp8brj4c47/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 19:52:49,830 - ERROR - Update failed: Failed to build new version
+2024-12-07 19:56:24,906 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpk8r1h7nk/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 19:56:24,907 - ERROR - Update failed: Failed to build new version
+2024-12-07 19:58:19,458 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpavl6xuft/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 19:58:19,459 - ERROR - Update failed: Failed to build new version
+2024-12-07 19:59:22,681 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpms_tv59t/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 19:59:22,683 - ERROR - Update failed: Failed to build new version

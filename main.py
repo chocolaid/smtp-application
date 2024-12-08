@@ -84,17 +84,12 @@ def display_banner():
     print(banner)
 
 def get_version():
-    """Get current version from version.json."""
+    """Get current version."""
     try:
-        version_file = os.path.join(project_root, 'version.json')
-        if os.path.exists(version_file):
-            with open(version_file, 'r') as f:
-                import json
-                data = json.load(f)
-                return data.get('version', '1.0.0')
+        from src.config.version import VERSION
+        return VERSION
     except:
-        pass
-    return '1.0.0'
+        return '1.0.0'
 
 def check_python_version():
     """Check if Python version meets requirements."""

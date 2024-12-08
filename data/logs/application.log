@@ -376,3 +376,5 @@
 2024-12-07 18:46:32,876 - INFO - Update available: 3.0.0
 2024-12-07 18:48:40,038 - ERROR - Error replacing executable: [Errno 13] Permission denied
 2024-12-07 18:48:40,039 - ERROR - Update failed: Failed to replace executable
+2024-12-07 19:04:08,255 - ERROR - Error replacing executable: [Errno 13] Permission denied
+2024-12-07 19:04:08,256 - ERROR - Update failed: Failed to replace executable

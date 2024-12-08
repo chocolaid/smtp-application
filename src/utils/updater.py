@@ -23,6 +23,10 @@ class Updater:
         self.build_dir = None
         self.is_admin = self._check_admin()
 
+    def _is_running_from_source(self):
+        """Check if running from source code or built executable"""
+        return os.path.basename(sys.executable) in ['python.exe', 'python', 'python3']
+
     def _check_admin(self):
         """Check if the application has admin privileges"""
         try:
@@ -281,49 +285,73 @@ setup(
     def _replace_executable(self, new_path: str):
         """Replace current executable with new version"""
         try:
-            current_path = sys.executable
-            backup_path = current_path + '.backup'
-            
-            # Check if we need admin privileges
-            if not self._check_file_permissions(current_path):
-                if not self.is_admin:
-                    print(f"{Fore.YELLOW}Admin privileges required for update. Requesting elevation...{Style.RESET_ALL}")
-                    return self._run_as_admin()
-            
-            # Create backup of current executable
-            shutil.copy2(current_path, backup_path)
-            
-            try:
-                if self.platform == 'darwin':  # macOS
-                    # Stop the current process if it's running
-                    app_name = os.path.basename(current_path)
-                    subprocess.run(['pkill', '-f', app_name], stderr=subprocess.DEVNULL)
-                    
-                    # Copy new executable
-                    shutil.copy2(new_path, current_path)
-                    # Set proper permissions
-                    os.chmod(current_path, 0o755)
-                    
-                elif self.platform == 'windows':
-                    import win32api
-                    import win32con
-                    # Set file attributes to normal
-                    win32api.SetFileAttributes(current_path, win32con.FILE_ATTRIBUTE_NORMAL)
-                    # Move new file to replace old one
-                    os.replace(new_path, current_path)
-                else:  # Linux
-                    shutil.copy2(new_path, current_path)
-                    os.chmod(current_path, 0o755)
+            if self._is_running_from_source():
+                print(f"{Fore.YELLOW}Running from source code. Installing built version...{Style.RESET_ALL}")
+                # When running from source, create a new executable instead of replacing
+                install_dir = os.path.join(os.path.expanduser('~'), 'SMTPManager')
+                os.makedirs(install_dir, exist_ok=True)
                 
-                os.remove(backup_path)
+                target_path = os.path.join(
+                    install_dir, 
+                    'smtp_manager.exe' if self.platform == 'windows' else 'smtp_manager'
+                )
+                
+                # Copy the new executable
+                shutil.copy2(new_path, target_path)
+                
+                # Set proper permissions
+                if self.platform != 'windows':
+                    os.chmod(target_path, 0o755)
+                
+                print(f"{Fore.GREEN}Application installed to: {target_path}")
+                print(f"Please run the application from that location next time.{Style.RESET_ALL}")
                 return True
                 
-            except Exception as e:
-                # Restore backup if replacement fails
-                if os.path.exists(backup_path):
-                    shutil.copy2(backup_path, current_path)
+            else:
+                # Normal executable replacement logic
+                current_path = sys.executable
+                backup_path = current_path + '.backup'
+                
+                # Check if we need admin privileges
+                if not self._check_file_permissions(current_path):
+                    if not self.is_admin:
+                        print(f"{Fore.YELLOW}Admin privileges required for update. Requesting elevation...{Style.RESET_ALL}")
+                        return self._run_as_admin()
+                
+                # Create backup of current executable
+                shutil.copy2(current_path, backup_path)
+                
+                try:
+                    if self.platform == 'darwin':  # macOS
+                        # Stop the current process if it's running
+                        app_name = os.path.basename(current_path)
+                        subprocess.run(['pkill', '-f', app_name], stderr=subprocess.DEVNULL)
+                        
+                        # Copy new executable
+                        shutil.copy2(new_path, current_path)
+                        # Set proper permissions
+                        os.chmod(current_path, 0o755)
+                        
+                    elif self.platform == 'windows':
+                        import win32api
+                        import win32con
+                        # Set file attributes to normal
+                        win32api.SetFileAttributes(current_path, win32con.FILE_ATTRIBUTE_NORMAL)
+                        # Move new file to replace old one
+                        os.replace(new_path, current_path)
+                    else:  # Linux
+                        shutil.copy2(new_path, current_path)
+                        os.chmod(current_path, 0o755)
+                    
                     os.remove(backup_path)
-                raise e
+                    return True
+                    
+                except Exception as e:
+                    # Restore backup if replacement fails
+                    if os.path.exists(backup_path):
+                        shutil.copy2(backup_path, current_path)
+                        os.remove(backup_path)
+                    raise e
 
         except Exception as e:
             self.logger.error(f"Error replacing executable: {str(e)}")
@@ -347,8 +375,11 @@ setup(
                 # Replace current executable
                 print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
                 if self._replace_executable(new_exe):
-                    print(f"{Fore.GREEN}Update installed successfully. Please restart the application.{Style.RESET_ALL}")
-                    sys.exit(0)
+                    if self._is_running_from_source():
+                        return True  # Continue running from source this time
+                    else:
+                        print(f"{Fore.GREEN}Update installed successfully. Please restart the application.{Style.RESET_ALL}")
+                        sys.exit(0)
                 else:
                     raise Exception("Failed to replace executable")
 
@@ -361,7 +392,7 @@ setup(
             self.logger.error(error_msg)
             if mandatory:
                 print(f"{Fore.RED}{error_msg}")
-                print("Updates are required to run this application.{Style.RESET_ALL}")
+                print(f"Updates are required to run this application.{Style.RESET_ALL}")
                 sys.exit(1)
             return False
 

@@ -65,7 +65,7 @@ class Updater:
             return False
     def _get_current_version(self) -> str:
         """Get current version from embedded version info"""
-        return "2.0.0" 
+        return "1.0.0" 
 
     def _get_remote_version(self) -> str:
         """Get version from remote repository's src/config/version.py"""
@@ -151,54 +151,48 @@ from cx_Freeze import setup, Executable
 # Dependencies are automatically detected, but it might need fine tuning.
 build_exe_options = {
     "packages": [
-        "os",
-        "sys",
-        "json",
-        "logging",
         "colorama",
         "cryptography",
         "datetime",
-        "tempfile",
-        "shutil",
-        "platform",
-        "subprocess",
         "git",
         "packaging",
-        "smtplib",
-        "ssl",
-        "email",
-        "getpass",
-        "typing",
-        "cx_Freeze"
     ],
     "excludes": [
         "tkinter",
         "test",
-        "distutils"
+        "distutils",
+        "unittest",
+        "pydoc",
+        "doctest",
+        "setuptools",
+        "pip"
     ],
     "include_files": [
         ("data", "data"),
         ("assets", "assets")
     ],
     "build_exe": "build/SMTP Manager",
-    "zip_include_packages": "*",
-    "zip_exclude_packages": None,
+    "optimize": 2,
     "include_msvcr": True
 }
 
 # base="Win32GUI" should be used only for Windows GUI app
 base = None
 if sys.platform == "win32":
-    base = "Win32GUI"
+    base = "Console"  # Changed from "Win32GUI" to "Console" for better error visibility
 
 setup(
     name = "SMTP Manager",
     version = "%s",
     description = "SMTP Manager",
     options = {"build_exe": build_exe_options},
-    executables = [Executable("main.py", base=base)]
+    executables = [Executable(
+        "main.py",
+        base=base,
+        target_name="%s"
+    )]
 )
-""" % (self.current_version)
+""" % (self.current_version, self.exe_name)
 
         setup_path = os.path.join(self.build_dir, "setup.py")
         with open(setup_path, "w") as f:

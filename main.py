@@ -133,35 +133,33 @@ def main():
         if not check_dependencies():
             return
 
-        # Import the application class
-        from src.app import SMTPApplication
-        
         # Display banner
         display_banner()
-
-        # Mandatory update check
-        updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
-        if not updater.check_for_updates(mandatory=True):
-            print(f"{Fore.RED}Cannot continue without updating. Please try again.{Style.RESET_ALL}")
-            return
         
-        # Check for updates if enabled
-        if Settings.CHECK_UPDATES_ON_START:
-            print(f"{Fore.CYAN}Checking for updates...{Style.RESET_ALL}")
-            updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
-            if updater.check_for_updates():
-                print(f"{Fore.GREEN}Update installed. Please restart the application.{Style.RESET_ALL}")
-                return
-
-        # Setup environment
+        # Setup environment first
         if not setup_environment():
             print(f"{Fore.RED}Failed to setup environment. Exiting...{Style.RESET_ALL}")
             return
 
+        # Check for updates
+        if Settings.CHECK_UPDATES_ON_START:
+            updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
+            update_result = updater.check_for_updates(mandatory=True)
+            
+            if update_result is None:  # Update was installed
+                print(f"{Fore.GREEN}Update installed. Please restart the application.{Style.RESET_ALL}")
+                return
+            elif not update_result:  # Update failed
+                print(f"{Fore.RED}Cannot continue without updating. Please try again.{Style.RESET_ALL}")
+                return
+
+        # Import the application class
+        from src.app import SMTPApplication
+        
         # Initialize and start application
         print(f"{Fore.CYAN}Initializing application...{Style.RESET_ALL}")
         app = SMTPApplication()
-        app.run()
+        app.start()
 
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}Application terminated by user.{Style.RESET_ALL}")

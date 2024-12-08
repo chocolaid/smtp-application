@@ -390,3 +390,9 @@
 2024-12-07 19:58:19,459 - ERROR - Update failed: Failed to build new version
 2024-12-07 19:59:22,681 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpms_tv59t/build/setup.py', 'build']' returned non-zero exit status 1.
 2024-12-07 19:59:22,683 - ERROR - Update failed: Failed to build new version
+2024-12-07 20:48:58,833 - ERROR - macOS build failed: Command '['/usr/local/bin/python3', '/var/folders/w7/0qv22rk574g74kwz42_rtrg80000gn/T/tmpcme3v0dd/build/setup.py', 'build']' returned non-zero exit status 1.
+2024-12-07 20:48:58,834 - ERROR - Update failed: Failed to build new version
+2024-12-07 21:01:33,645 - ERROR - macOS build failed: Built executable not found
+2024-12-07 21:01:33,646 - ERROR - Update failed: Failed to build new version
+2024-12-07 21:03:32,441 - ERROR - macOS build failed: Built executable not found
+2024-12-07 21:03:32,442 - ERROR - Update failed: Failed to build new version

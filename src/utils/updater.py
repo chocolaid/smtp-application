@@ -65,7 +65,7 @@ class Updater:
             return False
     def _get_current_version(self) -> str:
         """Get current version from embedded version info"""
-        return "3.0.0" 
+        return "2.0.0" 
 
     def _get_remote_version(self) -> str:
         """Get version from remote repository's src/config/version.py"""
@@ -93,6 +93,19 @@ class Updater:
             # Create build directory
             self.build_dir = os.path.join(self.temp_dir, 'build')
             os.makedirs(self.build_dir, exist_ok=True)
+
+            data_dirs = [
+                'data',
+                'data/smtp',
+                'data/templates',
+                'data/recipients',
+                'data/campaigns',
+                'data/backups',
+                'data/logs'
+            ]
+        
+            for dir_path in data_dirs:
+                os.makedirs(os.path.join(self.build_dir, dir_path), exist_ok=True)
 
             # Copy source files
             shutil.copytree(
@@ -130,53 +143,62 @@ class Updater:
 
     def _create_setup_script(self):
         """Create setup.py for cx_Freeze"""
-        
-        # Prepare include_files list with only existing paths
-        include_files = [
-            ("src", "src")
-        ]
-        
-        # Only add data directory if it exists
-        if os.path.exists(os.path.join(self.build_dir, "data")):
-            include_files.append(("data", "data"))
-        
-        setup_script = """import sys
+        setup_script = """
+import sys
+import os
 from cx_Freeze import setup, Executable
 
-# Dependencies
+# Dependencies are automatically detected, but it might need fine tuning.
 build_exe_options = {
     "packages": [
-        "os", "sys", "json", "logging", "colorama", "cryptography",
-        "datetime", "tempfile", "shutil", "platform", "subprocess",
-        "git", "packaging"
+        "os",
+        "sys",
+        "json",
+        "logging",
+        "colorama",
+        "cryptography",
+        "datetime",
+        "tempfile",
+        "shutil",
+        "platform",
+        "subprocess",
+        "git",
+        "packaging",
+        "smtplib",
+        "ssl",
+        "email",
+        "getpass",
+        "typing",
+        "cx_Freeze"
     ],
-    "excludes": ["tkinter", "test", "distutils"],
-    "include_files": %s,
-    "include_msvcr": True,  # Include Visual C++ runtime files
-    "zip_include_packages": "*",  # Include all packages in zip
+    "excludes": [
+        "tkinter",
+        "test",
+        "distutils"
+    ],
+    "include_files": [
+        ("data", "data"),
+        ("assets", "assets")
+    ],
+    "build_exe": "build/SMTP Manager",
+    "zip_include_packages": "*",
     "zip_exclude_packages": None,
+    "include_msvcr": True
 }
 
-# Base for GUI applications
+# base="Win32GUI" should be used only for Windows GUI app
 base = None
 if sys.platform == "win32":
     base = "Win32GUI"
 
-# Target executable
-target = Executable(
-    script="main.py",
-    base=base,
-    target_name="%s",
-    icon="%s" if sys.platform == "win32" else None
-)
-
 setup(
-    name="SMTP Manager",
-    version="%s",
-    description="SMTP Management Tool",
-    options={"build_exe": build_exe_options},
-    executables=[target]
-)""" % (include_files, self.exe_name, Settings.APP_ICON_PATH, self.current_version)
+    name = "SMTP Manager",
+    version = "%s",
+    description = "SMTP Manager",
+    options = {"build_exe": build_exe_options},
+    executables = [Executable("main.py", base=base)]
+)
+""" % (self.current_version)
 
         setup_path = os.path.join(self.build_dir, "setup.py")
         with open(setup_path, "w") as f:

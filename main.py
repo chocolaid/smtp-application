@@ -64,8 +64,8 @@ def menu_logo():
     # Author information
     author_info = [
         "╔════════════════════════════════════════════════════════════════╗",
-        "║                  Created by: Your Name                         ║",
-        "║              Email: your.email@example.com                     ║",
+        "║                  Created by:  OECAPPS                          ║",
+        "║              Email: ebenedict291@gmail.com                     ║",
         "║     Message: Empowering Communication Through Technology       ║",
         "╚════════════════════════════════════════════════════════════════╝"
     ]

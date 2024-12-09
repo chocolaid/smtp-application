@@ -1,54 +1,42 @@
 import sys
+import os
 from cx_Freeze import setup, Executable
 
-# Dependencies are automatically detected, but it might need fine tuning.
-# "packages": ["os"] is used as example only
+sys.setrecursionlimit(15000)
+
 build_exe_options = {
+    "includes": ["colorama", "cryptography", "pandas", "packaging"],
     "packages": [
         "os",
         "sys",
         "json",
         "logging",
-        "colorama",
-        "cryptography",
         "datetime",
         "tempfile",
         "shutil",
         "platform",
         "subprocess",
-        "git",
-        "packaging",
         "smtplib",
         "ssl",
         "email",
         "getpass",
-        "typing",
-        "cx_Freeze"
+        "typing"
     ],
-    "excludes": [
-        "tkinter",
-        "test",
-        "distutils"
-    ],
+    "excludes": ["tkinter", "test", "distutils", "unittest"],
     "include_files": [
-        ("data", "data"),
-        ("assets", "assets")
+        (os.path.abspath("data"), "data"),
+        (os.path.abspath("assets"), "assets")
     ],
-    "build_exe": "build/SMTP Manager",
-    "zip_include_packages": "*",
-    "zip_exclude_packages": None,
+    "build_exe": "build/SMTP_Manager",
     "include_msvcr": True,
-    
 }
-# base="Win32GUI" should be used only for Windows GUI app
+
 base = None
-if sys.platform == "win32":
-    base = "Win32GUI"
 
 setup(
-    name = "SMTP Manager",
-    version = "2.0.0",
-    description = "SMTP Manager",
-    options = {"build_exe": build_exe_options},
-    executables = [Executable("main.py", base=base)]
+    name="SMTP Manager",
+    version="2.0.0",
+    description="SMTP Manager",
+    options={"build_exe": build_exe_options},
+    executables=[Executable("main.py", base=base)],
 )

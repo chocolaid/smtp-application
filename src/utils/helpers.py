@@ -13,7 +13,7 @@ def clear_screen():
         print("\n" * 100)
 
 def ensure_directory(path):
-    os.makedirs(path, exist_ok=True)
+    os.makedirs(os.path.abspath(path), exist_ok=True)
 
 def delete_file(file_path):
     try:

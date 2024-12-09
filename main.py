@@ -13,7 +13,11 @@ from src.utils.helpers import ensure_directory
 init()
 
 # Add project root to Python path
-project_root = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    project_root = os.path.dirname(sys.executable)
+else:
+    project_root = os.path.dirname(os.path.abspath(__file__))
+
 sys.path.insert(0, project_root)
 
 def create_directory_structure():
@@ -32,7 +36,7 @@ def create_directory_structure():
     ]
     
     for directory in directories:
-        path = os.path.join(project_root, directory)
+        path = os.path.abspath(os.path.join(project_root, directory))
         os.makedirs(path, exist_ok=True)
 
 def create_init_files():

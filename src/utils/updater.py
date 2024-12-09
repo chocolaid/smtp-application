@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import platform
 import subprocess
+import re
 from git import Repo
 from packaging import version
 from datetime import datetime
@@ -448,8 +449,8 @@ Note: Do not delete any files in this directory."""
                 if proceed != 'yes':
                     if mandatory:
                         print(f"{Fore.RED}Updates are required to run this application.{Style.RESET_ALL}")
-                        return False
-                    return True
+                        sys.exit(1)  # Exit if update is mandatory but user declined
+                    return True  # Continue without update if not mandatory
                 
                 print(f"{Fore.CYAN}Building new version... This may take a few minutes.{Style.RESET_ALL}")
                 new_exe = self._build_executable()
@@ -459,9 +460,10 @@ Note: Do not delete any files in this directory."""
                 print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
                 if self._replace_executable(new_exe):
                     print(f"{Fore.GREEN}Update installed successfully!")
-                    print("Your data and settings have been preserved.{Style.RESET_ALL}")
+                    print(f"Your data and settings have been preserved.{Style.RESET_ALL}")
                     if not self._is_running_from_source():
-                        sys.exit(0)
+                        print(f"{Fore.YELLOW}Please restart the application for the update to take effect.{Style.RESET_ALL}")
+                        sys.exit(0)  # Exit after successful update
                     return True
                 else:
                     raise Exception("Failed to replace executable")
@@ -476,7 +478,7 @@ Note: Do not delete any files in this directory."""
             if mandatory:
                 print(f"{Fore.RED}{error_msg}")
                 print(f"Updates are required to run this application.{Style.RESET_ALL}")
-                return False
+                sys.exit(1)  # Exit on failure if update is mandatory
             return False
 
     def _get_whats_new(self) -> str:

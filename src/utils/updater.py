@@ -283,29 +283,50 @@ setup(
         """Build executable for current platform"""
         try:
             # Get the absolute path to the project root
-            current_file = os.path.abspath(__file__)  # Gets path to updater.py
-            utils_dir = os.path.dirname(current_file)  # Gets path to utils directory
-            src_dir = os.path.dirname(utils_dir)      # Gets path to src directory
-            project_root = os.path.dirname(src_dir)    # Gets path to project root
+            current_file = os.path.abspath(__file__)
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
             
             # Add to Python path
             sys.path.insert(0, project_root)
             
-            if not self._prepare_build_directory():
-                raise Exception("Failed to prepare build directory")
-                
-            build_functions = {
-                'windows': self._build_windows,
-                'darwin': self._build_macos,
-                'linux': self._build_linux
-            }
+            # Create temporary build directory
+            build_dir = os.path.join(self.temp_dir, 'build')
+            os.makedirs(build_dir, exist_ok=True)
             
-            build_func = build_functions.get(self.platform)
-            if not build_func:
-                raise Exception(f"Unsupported platform: {self.platform}")
-                
-            return build_func()
+            # Copy only necessary files for build
+            files_to_copy = ['main.py', 'setup.py', 'requirements.txt']
+            for file in files_to_copy:
+                src = os.path.join(project_root, file)
+                if os.path.exists(src):
+                    shutil.copy2(src, os.path.join(build_dir, file))
             
+            # Copy src directory (excluding __pycache__)
+            shutil.copytree(
+                os.path.join(project_root, 'src'),
+                os.path.join(build_dir, 'src'),
+                ignore=shutil.ignore_patterns('__pycache__', '*.pyc')
+            )
+            
+            # Run setup.py build
+            subprocess.run([
+                sys.executable,
+                'setup.py',
+                'build'
+            ], cwd=build_dir, check=True)
+            
+            # Find the built executable
+            exe_path = None
+            for root, _, files in os.walk(os.path.join(build_dir, 'build')):
+                for file in files:
+                    if file == self.exe_name:
+                        exe_path = os.path.join(root, file)
+                        break
+            
+            if not exe_path:
+                raise Exception("Built executable not found")
+                
+            return exe_path
+                
         except Exception as e:
             self.logger.error(f"Build failed: {str(e)}")
             return None
@@ -357,26 +378,14 @@ Note: Do not delete any files in this directory."""
             if self._is_running_from_source():
                 print(f"{Fore.YELLOW}Running from source code. Installing built version...{Style.RESET_ALL}")
                 
-                # Get desktop path based on platform
-                if self.platform == 'windows':
-                    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
-                elif self.platform == 'darwin':  # macOS
-                    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
-                else:  # Linux
-                    desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
-                    # Fallback to home directory if Desktop doesn't exist
-                    if not os.path.exists(desktop_path):
-                        desktop_path = os.path.expanduser('~')
-                
-                # Create application directory on desktop
-                install_dir = os.path.join(desktop_path, 'SMTPManager')
+                # Get installation directory
+                install_dir = os.path.join(os.path.expanduser('~'), 'SMTPManager')
                 os.makedirs(install_dir, exist_ok=True)
                 
                 target_path = os.path.join(install_dir, self.exe_name)
                 
-                # Copy the new executable and required files
+                # Copy only the executable, preserve data directory
                 shutil.copy2(new_path, target_path)
-                self._copy_required_files(install_dir)
                 
                 # Set proper permissions
                 if self.platform != 'windows':
@@ -395,15 +404,12 @@ Note: Do not delete any files in this directory."""
                         print(f"{Fore.YELLOW}Admin privileges required for update. Requesting elevation...{Style.RESET_ALL}")
                         return self._run_as_admin()
                 
+                # Create backup
                 shutil.copy2(current_path, backup_path)
                 
                 try:
-                    if self.platform == 'darwin':
-                        app_name = os.path.basename(current_path)
-                        subprocess.run(['pkill', '-f', app_name], stderr=subprocess.DEVNULL)
-                        shutil.copy2(new_path, current_path)
-                        os.chmod(current_path, 0o755)
-                    elif self.platform == 'windows':
+                    # Replace executable only, preserve data directory
+                    if self.platform == 'windows':
                         import win32api
                         import win32con
                         win32api.SetFileAttributes(current_path, win32con.FILE_ATTRIBUTE_NORMAL)
@@ -425,47 +431,65 @@ Note: Do not delete any files in this directory."""
             self.logger.error(f"Error replacing executable: {str(e)}")
             return False
 
-    def check_for_updates(self, mandatory=True, max_attempts=3) -> bool:
+    def check_for_updates(self, mandatory=True) -> bool:
         """Check for updates and install if available"""
-        attempts = 0
-        while attempts < max_attempts:
-            try:
-                remote_version = self._get_remote_version()
+        try:
+            remote_version = self._get_remote_version()
+            
+            if version.parse(remote_version) > version.parse(self.current_version):
+                # Display what's new
+                whats_new = self._get_whats_new()
+                print(f"\n{Fore.CYAN}What's New in v{remote_version}:{Style.RESET_ALL}")
+                print(whats_new)
                 
-                if version.parse(remote_version) > version.parse(self.current_version):
-                    print(f"{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
-                    
-                    print(f"{Fore.CYAN}Building new version... This may take a few minutes.{Style.RESET_ALL}")
-                    new_exe = self._build_executable()
-                    if not new_exe:
-                        raise Exception("Failed to build new version")
-
-                    print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
-                    if self._replace_executable(new_exe):
-                        if self._is_running_from_source():
-                            return True  # Continue running from source this time
-                        print(f"{Fore.GREEN}Update installed successfully. The application will now exit.{Style.RESET_ALL}")
-                        sys.exit(0)  # Exit immediately after successful update
-                    else:
-                        raise Exception("Failed to replace executable")
-
-                else:
-                    print(f"{Fore.GREEN}You are running the latest version: v{self.current_version}{Style.RESET_ALL}")
-                    return True
-
-            except Exception as e:
-                attempts += 1
-                error_msg = f"Update failed (attempt {attempts}/{max_attempts}): {str(e)}"
-                self.logger.error(error_msg)
-                if attempts < max_attempts:
-                    print(f"{Fore.YELLOW}{error_msg}")
-                    print(f"Retrying in 5 seconds...{Style.RESET_ALL}")
-                    time.sleep(5)
-                else:
+                print(f"\n{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
+                
+                proceed = input("\nDo you want to proceed with the update? (yes/no): ").lower()
+                if proceed != 'yes':
                     if mandatory:
-                        print(f"{Fore.RED}{error_msg}")
-                        print(f"Updates are required to run this application.{Style.RESET_ALL}")
-                        sys.exit(1)  # Exit with error code
-                    return False
+                        print(f"{Fore.RED}Updates are required to run this application.{Style.RESET_ALL}")
+                        return False
+                    return True
+                
+                print(f"{Fore.CYAN}Building new version... This may take a few minutes.{Style.RESET_ALL}")
+                new_exe = self._build_executable()
+                if not new_exe:
+                    raise Exception("Failed to build new version")
 
-        return False
+                print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
+                if self._replace_executable(new_exe):
+                    print(f"{Fore.GREEN}Update installed successfully!")
+                    print("Your data and settings have been preserved.{Style.RESET_ALL}")
+                    if not self._is_running_from_source():
+                        sys.exit(0)
+                    return True
+                else:
+                    raise Exception("Failed to replace executable")
+
+            else:
+                print(f"{Fore.GREEN}You are running the latest version: v{self.current_version}{Style.RESET_ALL}")
+                return True
+
+        except Exception as e:
+            error_msg = f"Update failed: {str(e)}"
+            self.logger.error(error_msg)
+            if mandatory:
+                print(f"{Fore.RED}{error_msg}")
+                print(f"Updates are required to run this application.{Style.RESET_ALL}")
+                return False
+            return False
+
+    def _get_whats_new(self) -> str:
+        """Get what's new information from version.py"""
+        try:
+            version_file = os.path.join(self.temp_dir, 'src', 'config', 'version.py')
+            if os.path.exists(version_file):
+                with open(version_file, 'r') as f:
+                    content = f.read()
+                    whats_new = re.search(r'WHATS_NEW\s*=\s*"""(.*?)"""', content, re.DOTALL)
+                    if whats_new:
+                        return whats_new.group(1).strip()
+            return "No release notes available."
+        except Exception as e:
+            self.logger.error(f"Error getting what's new: {str(e)}")
+            return "No release notes available."

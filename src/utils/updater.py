@@ -67,7 +67,7 @@ class Updater:
             return False
     def _get_current_version(self) -> str:
         """Get current version from embedded version info"""
-        return "8.0.0" 
+        return "9.0.0" 
 
     def _get_remote_version(self) -> str:
         """Get version from remote repository's src/config/version.py"""

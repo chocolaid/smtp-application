@@ -11,6 +11,7 @@ from datetime import datetime
 from colorama import Fore, Style
 from src.utils.logger import Logger
 from src.config.settings import Settings
+import time
 
 class Updater:
     def __init__(self, github_token: str, repo_url: str):
@@ -424,37 +425,47 @@ Note: Do not delete any files in this directory."""
             self.logger.error(f"Error replacing executable: {str(e)}")
             return False
 
-    def check_for_updates(self, mandatory=True) -> bool:
+    def check_for_updates(self, mandatory=True, max_attempts=3) -> bool:
         """Check for updates and install if available"""
-        try:
-            remote_version = self._get_remote_version()
-            
-            if version.parse(remote_version) > version.parse(self.current_version):
-                print(f"{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
+        attempts = 0
+        while attempts < max_attempts:
+            try:
+                remote_version = self._get_remote_version()
                 
-                print(f"{Fore.CYAN}Building new version... This may take a few minutes.{Style.RESET_ALL}")
-                new_exe = self._build_executable()
-                if not new_exe:
-                    raise Exception("Failed to build new version")
+                if version.parse(remote_version) > version.parse(self.current_version):
+                    print(f"{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
+                    
+                    print(f"{Fore.CYAN}Building new version... This may take a few minutes.{Style.RESET_ALL}")
+                    new_exe = self._build_executable()
+                    if not new_exe:
+                        raise Exception("Failed to build new version")
 
-                print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
-                if self._replace_executable(new_exe):
-                    if self._is_running_from_source():
-                        return True  # Continue running from source this time
-                    print(f"{Fore.GREEN}Update installed successfully. The application will now exit.{Style.RESET_ALL}")
-                    sys.exit(0)  # Exit immediately after successful update
+                    print(f"{Fore.CYAN}Installing update...{Style.RESET_ALL}")
+                    if self._replace_executable(new_exe):
+                        if self._is_running_from_source():
+                            return True  # Continue running from source this time
+                        print(f"{Fore.GREEN}Update installed successfully. The application will now exit.{Style.RESET_ALL}")
+                        sys.exit(0)  # Exit immediately after successful update
+                    else:
+                        raise Exception("Failed to replace executable")
+
                 else:
-                    raise Exception("Failed to replace executable")
+                    print(f"{Fore.GREEN}You are running the latest version: v{self.current_version}{Style.RESET_ALL}")
+                    return True
 
-            else:
-                print(f"{Fore.GREEN}You are running the latest version: v{self.current_version}{Style.RESET_ALL}")
-                return True
+            except Exception as e:
+                attempts += 1
+                error_msg = f"Update failed (attempt {attempts}/{max_attempts}): {str(e)}"
+                self.logger.error(error_msg)
+                if attempts < max_attempts:
+                    print(f"{Fore.YELLOW}{error_msg}")
+                    print(f"Retrying in 5 seconds...{Style.RESET_ALL}")
+                    time.sleep(5)
+                else:
+                    if mandatory:
+                        print(f"{Fore.RED}{error_msg}")
+                        print(f"Updates are required to run this application.{Style.RESET_ALL}")
+                        sys.exit(1)  # Exit with error code
+                    return False
 
-        except Exception as e:
-            error_msg = f"Update failed: {str(e)}"
-            self.logger.error(error_msg)
-            if mandatory:
-                print(f"{Fore.RED}{error_msg}")
-                print(f"Updates are required to run this application.{Style.RESET_ALL}")
-                return False
-            return False
+        return False

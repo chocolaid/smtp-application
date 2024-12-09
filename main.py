@@ -208,14 +208,15 @@ def main():
 
         # Check for updates
         if Settings.CHECK_UPDATES_ON_START:
-            updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
-            update_result = updater.check_for_updates(mandatory=True)
-            
-            if update_result is None:  # Update was installed
-                print(f"{Fore.GREEN}Update installed. Please restart the application.{Style.RESET_ALL}")
-                return
-            elif not update_result:  # Update failed
-                print(f"{Fore.RED}Cannot continue without updating. Please try again.{Style.RESET_ALL}")
+            try:
+                updater = Updater(Settings.GITHUB_TOKEN, Settings.GITHUB_REPO)
+                update_result = updater.check_for_updates(mandatory=True)
+                
+                if not update_result:
+                    print(f"{Fore.RED}Update check failed. Please try again later.{Style.RESET_ALL}")
+                    return
+            except Exception as e:
+                print(f"{Fore.RED}Fatal error during update check: {str(e)}{Style.RESET_ALL}")
                 return
 
         # Import the application class

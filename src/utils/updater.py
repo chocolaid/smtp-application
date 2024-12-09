@@ -294,28 +294,39 @@ setup(
             build_dir = os.path.join(self.temp_dir, 'build')
             os.makedirs(build_dir, exist_ok=True)
             
-            # Copy only necessary files for build
-            files_to_copy = ['main.py', 'setup.py', 'requirements.txt']
-            for file in files_to_copy:
+            # Copy source files with detailed logging
+            print(f"{Fore.CYAN}Copying source files...{Style.RESET_ALL}")
+            shutil.copytree(
+                os.path.join(project_root, 'src'),
+                os.path.join(build_dir, 'src'),
+                ignore=shutil.ignore_patterns('__pycache__', '*.pyc'),
+                dirs_exist_ok=True
+            )
+            
+            # Copy main files
+            print(f"{Fore.CYAN}Copying main files...{Style.RESET_ALL}")
+            for file in ['main.py', 'setup.py', 'requirements.txt', 'version.json']:
                 src = os.path.join(project_root, file)
                 if os.path.exists(src):
                     shutil.copy2(src, os.path.join(build_dir, file))
             
-            # Copy src directory (excluding __pycache__)
-            shutil.copytree(
-                os.path.join(project_root, 'src'),
-                os.path.join(build_dir, 'src'),
-                ignore=shutil.ignore_patterns('__pycache__', '*.pyc')
+            # Run setup.py build with detailed output
+            print(f"{Fore.CYAN}Running build process...{Style.RESET_ALL}")
+            result = subprocess.run(
+                [sys.executable, 'setup.py', 'build'],
+                cwd=build_dir,
+                capture_output=True,
+                text=True
             )
             
-            # Run setup.py build
-            subprocess.run([
-                sys.executable,
-                'setup.py',
-                'build'
-            ], cwd=build_dir, check=True)
+            if result.returncode != 0:
+                print(f"{Fore.RED}Build output:{Style.RESET_ALL}")
+                print(result.stdout)
+                print(result.stderr)
+                raise Exception(f"Build failed with return code {result.returncode}")
             
             # Find the built executable
+            print(f"{Fore.CYAN}Locating built executable...{Style.RESET_ALL}")
             exe_path = None
             for root, _, files in os.walk(os.path.join(build_dir, 'build')):
                 for file in files:
@@ -325,7 +336,8 @@ setup(
             
             if not exe_path:
                 raise Exception("Built executable not found")
-                
+            
+            print(f"{Fore.GREEN}Build successful: {exe_path}{Style.RESET_ALL}")
             return exe_path
                 
         except Exception as e:

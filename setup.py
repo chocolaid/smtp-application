@@ -6,7 +6,16 @@ import src.config.version as version
 sys.setrecursionlimit(15000)
 
 build_exe_options = {
-    "includes": ["colorama", "cryptography", "pandas", "packaging"],
+    "includes": [
+        "colorama", 
+        "cryptography", 
+        "pandas", 
+        "packaging",
+        "git",  # Add GitPython dependency
+        "smtplib",
+        "ssl",
+        "email"
+    ],
     "packages": [
         "os",
         "sys",
@@ -21,12 +30,14 @@ build_exe_options = {
         "ssl",
         "email",
         "getpass",
-        "typing"
+        "typing",
+        "src"  # Include the entire src package
     ],
     "excludes": ["tkinter", "test", "distutils", "unittest"],
     "include_files": [
         (os.path.abspath("data"), "data"),
-        (os.path.abspath("assets"), "assets")
+        (os.path.abspath("assets"), "assets"),
+        (os.path.abspath("version.json"), "version.json")
     ],
     "build_exe": "build/SMTP_Manager",
     "include_msvcr": True,

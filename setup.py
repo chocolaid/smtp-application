@@ -1,6 +1,7 @@
 import sys
 import os
 from cx_Freeze import setup, Executable
+import src.config.version as version
 
 sys.setrecursionlimit(15000)
 
@@ -35,7 +36,7 @@ base = None
 
 setup(
     name="SMTP Manager",
-    version="2.0.0",
+    version=version.VERSION,
     description="SMTP Manager",
     options={"build_exe": build_exe_options},
     executables=[Executable("main.py", base=base)],

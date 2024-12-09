@@ -441,7 +441,8 @@ Note: Do not delete any files in this directory."""
                 if self._replace_executable(new_exe):
                     if self._is_running_from_source():
                         return True  # Continue running from source this time
-                    return None  # Signal that update was installed
+                    print(f"{Fore.GREEN}Update installed successfully. The application will now exit.{Style.RESET_ALL}")
+                    sys.exit(0)  # Exit immediately after successful update
                 else:
                     raise Exception("Failed to replace executable")
 

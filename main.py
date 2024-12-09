@@ -193,7 +193,7 @@ def main():
             return
 
         # Show matrix animation
-        matrix_animation(3)
+        matrix_animation(4)
         
         # Show custom logo
         menu_logo()

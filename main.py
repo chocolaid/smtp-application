@@ -2,9 +2,14 @@
 
 import os
 import sys
+import time
+import random
+import string
 import traceback
 from datetime import datetime
-from colorama import init, Fore, Style
+from threading import Thread
+from time import sleep
+from colorama import init, Fore, Style, Back
 from src.utils.updater import Updater
 from src.config.settings import Settings
 from src.utils.helpers import ensure_directory
@@ -19,6 +24,64 @@ else:
     project_root = os.path.dirname(os.path.abspath(__file__))
 
 sys.path.insert(0, project_root)
+
+def clear_screen():
+    """Clear the console screen."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def matrix_animation(duration=3):
+    """Display Matrix-like animation for specified duration."""
+    try:
+        clear_screen()
+        end_time = time.time() + duration
+        while time.time() < end_time:
+            # Generate random characters for matrix effect
+            line = ''
+            for _ in range(random.randint(20, 80)):
+                char = random.choice(string.ascii_letters + string.digits + '!@#$%^&*()_+-=[]{}|;:,.<>?')
+                line += f"{char} "
+            print(f"{Fore.GREEN}{line}{Style.RESET_ALL}")
+            sleep(0.05)
+        clear_screen()
+    except:
+        pass
+
+def menu_logo():
+    """Display customized logo with author information."""
+    # Rainbow colors
+    colors = [Fore.RED, Fore.YELLOW, Fore.GREEN, Fore.BLUE, Fore.MAGENTA, Fore.CYAN]
+    
+    # ASCII Art Logo
+    logo = """
+    ███████╗███╗   ███╗████████╗██████╗     ███╗   ███╗ █████╗ ███╗   ██╗ █████╗  ██████╗ ███████╗██████╗ 
+    ██╔════╝████╗ ████║╚══██╔══╝██╔══██╗    ████╗ ████║██╔══██╗████╗  ██║██╔══██╗██╔════╝ ██╔════╝██╔══██╗
+    ███████╗██╔████╔██║   ██║   ██████╔╝    ██╔████╔██║███████║██╔██╗ ██║███████║██║  ███╗█████╗  ██████╔╝
+    ╚════██║██║╚██╔╝██║   ██║   ██╔═══╝     ██║╚██╔╝██║██╔══██║██║╚██╗██║██╔══██║██║   ██║██╔══╝  ██╔══██╗
+    ███████║██║ ╚═╝ ██║   ██║   ██║         ██║ ╚═╝ ██║██║  ██║██║ ╚████║██║  ██║╚██████╔╝███████╗██║  ██║
+    ╚══════╝╚═╝     ╚═╝   ╚═╝   ╚═╝         ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+    """
+    
+    # Author information
+    author_info = [
+        "╔════════════════════════════════════════════════════════════════╗",
+        "║                  Created by: Your Name                         ║",
+        "║              Email: your.email@example.com                     ║",
+        "║     Message: Empowering Communication Through Technology       ║",
+        "╚════════════════════════════════════════════════════════════════╝"
+    ]
+    
+    # Print logo with random colors for each line
+    print("\n")
+    for line in logo.split('\n'):
+        color = random.choice(colors)
+        print(f"{color}{line}{Style.RESET_ALL}")
+    
+    # Print author information with random colors
+    print("\n")
+    for line in author_info:
+        color = random.choice(colors)
+        print(f"{color}{line}{Style.RESET_ALL}")
+    print("\n")
 
 def create_directory_structure():
     """Create the application directory structure."""
@@ -57,10 +120,7 @@ def create_init_files():
 def setup_environment():
     """Setup the application environment."""
     try:
-        # Create necessary directories
         create_directory_structure()
-        
-        # Create __init__.py files
         create_init_files()
         
         # Ensure data directories exist
@@ -132,6 +192,12 @@ def main():
         if not check_dependencies():
             return
 
+        # Show matrix animation
+        matrix_animation(3)
+        
+        # Show custom logo
+        menu_logo()
+        
         # Display banner
         display_banner()
         

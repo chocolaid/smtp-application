@@ -427,13 +427,12 @@ Note: Do not delete any files in this directory."""
     def check_for_updates(self, mandatory=True) -> bool:
         """Check for updates and install if available"""
         try:
-            print(f"{Fore.CYAN}Checking for updates...{Style.RESET_ALL}")
             remote_version = self._get_remote_version()
             
             if version.parse(remote_version) > version.parse(self.current_version):
                 print(f"{Fore.YELLOW}Update required: v{self.current_version} → v{remote_version}{Style.RESET_ALL}")
                 
-                print(f"{Fore.CYAN}Building new version...{Style.RESET_ALL}")
+                print(f"{Fore.CYAN}Building new version... This may take a few minutes.{Style.RESET_ALL}")
                 new_exe = self._build_executable()
                 if not new_exe:
                     raise Exception("Failed to build new version")
@@ -442,9 +441,7 @@ Note: Do not delete any files in this directory."""
                 if self._replace_executable(new_exe):
                     if self._is_running_from_source():
                         return True  # Continue running from source this time
-                    else:
-                        print(f"{Fore.GREEN}Update installed successfully. Please restart the application.{Style.RESET_ALL}")
-                        sys.exit(0)
+                    return None  # Signal that update was installed
                 else:
                     raise Exception("Failed to replace executable")
 
@@ -458,12 +455,5 @@ Note: Do not delete any files in this directory."""
             if mandatory:
                 print(f"{Fore.RED}{error_msg}")
                 print(f"Updates are required to run this application.{Style.RESET_ALL}")
-                sys.exit(1)
+                return False
             return False
-
-        finally:
-            try:
-                if self.temp_dir and os.path.exists(self.temp_dir):
-                    shutil.rmtree(self.temp_dir)
-            except:
-                pass
